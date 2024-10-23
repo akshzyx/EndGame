@@ -2,7 +2,40 @@
 
 This is the third and most likely final version of EndGame. The most popular anti-ddos solution on the darknet.
 
-EndGame is
+## Original post on Dread
+
+[EndGame V3 pre-release testing and bug bounty!](http://dreadytofatroptsdj6io7l3xptbet6onoyno2yv7jicoxknyazubrad.onion/post/821adc377e813881ac74)
+
+<details>
+<summary>Message signed by u/Paris</summary>
+
+```-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
+
+The production-release archive can be found at /EndGameV3.tar.gz from any dread URL. The only thing from this one to final is an update on gobalance. 
+SHA256 of 1ba58a3eedf49ed5a87930255c6a0e755870eda1500ddf33d17769dab8d5827f
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEbfleES3oPdbct1q5DE1JcU+sN9gFAma86HoACgkQDE1JcU+s
+N9gTpxAA3h4wuf0hRcS5olb4Au4YFxMz0fUqNvm/8GFXj0IE3/HLA2ZtjJsSZr04
+eGNBBqsvhfTDk0tuGQgl+jh9HFpaJvKmu2hROYpaDaawdZmT9nJfbaG22ZDDDRYE
+hUM1teiuvs9waohYUkoKAnMAfaRwx5gY31Zm7pSzh/BH4iA42pYRJtu8R16P+9n5
+Uuk8ogX3XGc0t/ESn/t+NbJbmrHildbL0RloDeJZckj5XLRRefjk/tjiK58Cbn1w
+HRoQYxYCE7/2g6RS5/VL/gCMDQU+AfWsOM761R5peI9MMzS1bBPS6dipSjK3VOza
+ffLO5hmfOhGd1Dn6qT8lYCMJvcpJyHElhwr+rfjoj7ZXKNAqtk8pijz06rTdSaPk
+XkWb+vezk8eeLKjBSH8sRzBz4wUw3Dcfo97WBym1+1LJVEtL1XB/tZZt2Wc6vBJy
+rgc9z2q1WtLJ6SDxXCfBhQJbJdRn6Lpb7kzvsmczCFTh8V0pSKUbORvQjXn1qJHs
+1BBZKGDUJHx1xlC2iuu+JV4o8gV1CPLy6pQcuHRONYvpH3fetlCOtUeVNzDYU3HW
+NCRPbgWYKfLhYDkAJMjvpJMaoWqjWjlSSSCBsXz/KHfHDuvWn7zB/eY20dHIaQKN
+YQ9X60F9W9DGC7Zn/LwHdHyZN/ZT7Cn4anEYjvwP/z85jGglwSw=
+=4fuh
+-----END PGP SIGNATURE-----
+```
+
+</details>
+
+
+### EndGame is
 
 - a front system designed to protect the core application servers on an onion service in a safe and private way.
 - locally complied and locally run (no trusted or middle party).
