@@ -7,7 +7,7 @@ This is the third and most likely final version of EndGame. The most popular ant
 [EndGame V3 pre-release testing and bug bounty!](http://dreadytofatroptsdj6io7l3xptbet6onoyno2yv7jicoxknyazubrad.onion/post/821adc377e813881ac74)
 
 <details>
-<summary>Message signed by u/Paris</summary>
+<summary>Message signed by /u/Paris</summary>
 
 ```-----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA256
