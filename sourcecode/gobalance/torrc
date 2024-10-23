@@ -1,0 +1,4 @@
+RunAsDaemon 0
+ControlPort 9051
+DataDirectory torfiles
+CookieAuthentication 1

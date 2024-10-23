@@ -1,0 +1,22 @@
+[package]
+name = "captcha"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+base64 = "0.21.0"
+image = "0.24.6"
+imageproc = "0.23.0"
+rand = "0.8.5"
+rusttype = "0.9.3"
+webp = "0.2.2"
+
+[build]
+target = "x86_64-unknown-linux-musl"
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
+panic = 'abort'
+strip = true

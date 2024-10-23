@@ -1,0 +1,11 @@
+Package: *
+Pin: release a=bullseye
+Pin-Priority: 500
+
+Package: linux-image-amd64
+Pin: release a=unstable
+Pin-Priority: 1000
+
+Package: *
+Pin: release a=unstable
+Pin-Priority: 100

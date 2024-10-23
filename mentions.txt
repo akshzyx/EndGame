@@ -1,0 +1,14 @@
+Endgame was a script developed by Paris and Mr White from White House Market (RIP).
+
+It is built upon many different open source foundations and subsequent corrections from various members of the community.
+
+Members like:
+
+/u/CastleQueen
+/u/InfinityProject
+/u/francium87
+/u/n0tr1v
+/u/nlimited
+/u/variousTor
+
+as well as many others who would rather not be mentioned here.

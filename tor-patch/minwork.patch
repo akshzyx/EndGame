@@ -1,0 +1,237 @@
+diff --git a/doc/man/tor.1.txt b/doc/man/tor.1.txt
+index 1589809b1a..71178e65c9 100644
+--- a/doc/man/tor.1.txt
++++ b/doc/man/tor.1.txt
+@@ -3121,6 +3121,15 @@ The following options are per onion service:
+ 
+ These options are applicable to both onion services and their clients:
+ 
++[[HiddenServicePoWEffort]] **HiddenServicePoWEffort** __NUM__::
++
++    The minimum required proof-of-work effort level needed to reach the given
++    Hidden Service. When this option is set to an integer larger than -1, the
++    service will no longer automatically increase its effort level, but will always
++    use the specified effort level as its effort. If this option is set to -1 (the
++    default), Tor will automatically tune the effort level to an appropriate value.
++    (Default: -1)
++
+ [[CompiledProofOfWorkHash]] **CompiledProofOfWorkHash** **0**|**1**|**auto**::
+     When proof-of-work DoS mitigation is active, both the services themselves
+     and the clients which connect will use a dynamically generated hash
+diff --git a/src/app/config/config.c b/src/app/config/config.c
+index a10329c552..1cacae4454 100644
+--- a/src/app/config/config.c
++++ b/src/app/config/config.c
+@@ -517,6 +517,7 @@ static const config_var_t option_vars_[] = {
+   VAR("HiddenServicePoWDefensesEnabled", LINELIST_S, RendConfigLines, NULL),
+   VAR("HiddenServicePoWQueueRate", LINELIST_S, RendConfigLines, NULL),
+   VAR("HiddenServicePoWQueueBurst", LINELIST_S, RendConfigLines, NULL),
++  VAR("HiddenServicePoWEffort", LINELIST_S, RendConfigLines, NULL),
+   VAR("HiddenServiceStatistics", BOOL, HiddenServiceStatistics_option, "1"),
+   V(ClientOnionAuthDir,          FILENAME, NULL),
+   OBSOLETE("CloseHSClientCircuitsImmediatelyOnTimeout"),
+diff --git a/src/core/or/connection_edge.c b/src/core/or/connection_edge.c
+index f21779a80c..2230162fd3 100644
+--- a/src/core/or/connection_edge.c
++++ b/src/core/or/connection_edge.c
+@@ -983,8 +983,9 @@ export_hs_client_circuit_id(edge_connection_t *edge_conn,
+ 
+   char *buf = NULL;
+   const char dst_ipv6[] = "::1";
++
+   /* See RFC4193 regarding fc00::/7 */
+-  const char src_ipv6_prefix[] = "fc00:dead:beef:4dad:";
++  const char src_ipv6_prefix[] = "fc00:dead:beef:4dad";
+   uint16_t dst_port = 0;
+   uint16_t src_port = 1; /* default value */
+   uint32_t gid = 0; /* default value */
+@@ -1000,9 +1001,24 @@ export_hs_client_circuit_id(edge_connection_t *edge_conn,
+     dst_port = edge_conn->hs_ident->orig_virtual_port;
+   }
+ 
++  /* Include PoW effort (if any?) in the proxy string. */
++  uint16_t pow_effort_low = 0;
++  uint16_t pow_effort_high = 0;
++
++  if (edge_conn->on_circuit) {
++    origin_circuit_t *circ = TO_ORIGIN_CIRCUIT(edge_conn->on_circuit);
++
++    if (circ) {
++      const uint32_t effort = circ->hs_pow_effort;
++      pow_effort_low = effort & 0x0000ffff;
++      pow_effort_high = effort >> 16;
++    }
++  }
++
+   /* Build the string */
+-  tor_asprintf(&buf, "PROXY TCP6 %s:%x:%x %s %d %d\r\n",
++  tor_asprintf(&buf, "PROXY TCP6 %s:%x:%x:%x:%x %s %d %d\r\n",
+                src_ipv6_prefix,
++               pow_effort_high, pow_effort_low,
+                gid >> 16, gid & 0x0000ffff,
+                dst_ipv6, src_port, dst_port);
+ 
+diff --git a/src/feature/hs/hs_circuit.c b/src/feature/hs/hs_circuit.c
+index 4904f3ddf9..0b0a9eeafd 100644
+--- a/src/feature/hs/hs_circuit.c
++++ b/src/feature/hs/hs_circuit.c
+@@ -830,6 +830,19 @@ handle_rend_pqueue_cb(mainloop_event_t *ev, void *arg)
+       continue; /* do not increment count, this one's free */
+     }
+ 
++    /* We check if the effort is above our min. manually set value, if any. */
++    const uint32_t min_effort = service->config.pow_effort;
++
++    if (! service->config.pow_effort_auto &&
++        req->rdv_data.pow_effort < min_effort) {
++      log_info(LD_REND,
++               "Top rend request didn't meet minimum required "
++               "manually specified effort level; discarding and "
++               "moving to the next one.");
++      free_pending_rend(req);
++      continue;
++    }
++
+     /* Launch the rendezvous circuit. */
+     launch_rendezvous_point_circuit(service, &req->ip_auth_pubkey,
+                                     &req->ip_enc_key_kp, &req->rdv_data, now);
+diff --git a/src/feature/hs/hs_config.c b/src/feature/hs/hs_config.c
+index 296941138b..08627f96c0 100644
+--- a/src/feature/hs/hs_config.c
++++ b/src/feature/hs/hs_config.c
+@@ -409,6 +409,8 @@ config_service_v3(const hs_opts_t *hs_opts,
+   config->has_pow_defenses_enabled = hs_opts->HiddenServicePoWDefensesEnabled;
+   config->pow_queue_rate = hs_opts->HiddenServicePoWQueueRate;
+   config->pow_queue_burst = hs_opts->HiddenServicePoWQueueBurst;
++  config->pow_effort_auto = hs_opts->HiddenServicePoWEffort == -1;
++  config->pow_effort = hs_opts->HiddenServicePoWEffort;
+ 
+   log_info(LD_REND, "Service PoW defenses are %s",
+            config->has_pow_defenses_enabled ? "enabled" : "disabled");
+@@ -417,6 +419,11 @@ config_service_v3(const hs_opts_t *hs_opts,
+              config->pow_queue_rate);
+     log_info(LD_REND, "Service PoW queue burst set to: %" PRIu32,
+              config->pow_queue_burst);
++
++    if (! config->pow_effort_auto) {
++      log_info(LD_REND, "Service PoW minimum effort manually set to: %" PRIu32,
++               config->pow_effort);
++    }
+   }
+ 
+   /* We do not load the key material for the service at this stage. This is
+diff --git a/src/feature/hs/hs_options.inc b/src/feature/hs/hs_options.inc
+index 4ec62d592b..4de1d9ad88 100644
+--- a/src/feature/hs/hs_options.inc
++++ b/src/feature/hs/hs_options.inc
+@@ -35,4 +35,7 @@ CONF_VAR(HiddenServicePoWDefensesEnabled, BOOL, 0, "0")
+ CONF_VAR(HiddenServicePoWQueueRate, POSINT, 0, "250")
+ CONF_VAR(HiddenServicePoWQueueBurst, POSINT, 0, "2500")
+ 
++// "-1" implies "automatic".
++CONF_VAR(HiddenServicePoWEffort, INT, 0, "-1")
++
+ END_CONF_STRUCT(hs_opts_t)
+diff --git a/src/feature/hs/hs_service.c b/src/feature/hs/hs_service.c
+index 3cc8c23e0b..d0d34a5521 100644
+--- a/src/feature/hs/hs_service.c
++++ b/src/feature/hs/hs_service.c
+@@ -301,7 +301,8 @@ initialize_pow_defenses(hs_service_t *service)
+ 
+   /* We recalculate and update the suggested effort every HS_UPDATE_PERIOD
+    * seconds. */
+-  pow_state->suggested_effort = 0;
++  pow_state->suggested_effort = service->config.pow_effort;
++
+   pow_state->rend_handled = 0;
+   pow_state->total_effort = 0;
+   pow_state->next_effort_update = (time(NULL) + HS_UPDATE_PERIOD);
+@@ -2704,6 +2705,13 @@ update_suggested_effort(hs_service_t *service, time_t now)
+   /* Make life easier */
+   hs_pow_service_state_t *pow_state = service->state.pow_state;
+ 
++  /* If the operator have manually specified the effort, we simply return that
++   * here. */
++  if (! service->config.pow_effort_auto) {
++    pow_state->suggested_effort = service->config.pow_effort;
++    return;
++  }
++
+   /* Calculate the new suggested effort, using an additive-increase
+    * multiplicative-decrease estimation scheme. */
+   enum {
+diff --git a/src/feature/hs/hs_service.h b/src/feature/hs/hs_service.h
+index 36d67719ca..bf993bb0bb 100644
+--- a/src/feature/hs/hs_service.h
++++ b/src/feature/hs/hs_service.h
+@@ -271,6 +271,12 @@ typedef struct hs_service_config_t {
+   uint32_t pow_queue_rate;
+   uint32_t pow_queue_burst;
+ 
++  /** PoW effort is set manually or automatically by the service? */
++  bool pow_effort_auto;
++
++  /** PoW min. required effort if pow_effort_auto is false. */
++  uint32_t pow_effort;
++
+   /** If set, contains the Onion Balance master ed25519 public key (taken from
+    * an .onion addresses) that this tor instance serves as backend. */
+   smartlist_t *ob_master_pubkeys;
+diff --git a/src/test/test_hs_service.c b/src/test/test_hs_service.c
+index dc60c7ca29..588e8c4228 100644
+--- a/src/test/test_hs_service.c
++++ b/src/test/test_hs_service.c
+@@ -2197,7 +2197,7 @@ test_export_client_circuit_id(void *arg)
+   /* Check contents */
+   cp1 = buf_get_contents(conn->outbuf, &sz);
+   tt_str_op(cp1, OP_EQ,
+-            "PROXY TCP6 fc00:dead:beef:4dad::0:29a ::1 666 42\r\n");
++            "PROXY TCP6 fc00:dead:beef:4dad:0:0:0:29a ::1 666 42\r\n");
+ 
+   /* Change circ GID and see that the reported circuit ID also changes */
+   or_circ->global_identifier = 22;
+@@ -2214,7 +2214,7 @@ test_export_client_circuit_id(void *arg)
+   export_hs_client_circuit_id(edge_conn, service->config.circuit_id_protocol);
+   cp1 = buf_get_contents(conn->outbuf, &sz);
+   tt_str_op(cp1, OP_EQ,
+-            "PROXY TCP6 fc00:dead:beef:4dad::ffff:ffff ::1 65535 42\r\n");
++            "PROXY TCP6 fc00:dead:beef:4dad:0:0:ffff:ffff ::1 65535 42\r\n");
+   tor_free(cp1);
+ 
+   /* Check that GID with UINT16_MAX works. */
+@@ -2223,7 +2223,7 @@ test_export_client_circuit_id(void *arg)
+   export_hs_client_circuit_id(edge_conn, service->config.circuit_id_protocol);
+   cp1 = buf_get_contents(conn->outbuf, &sz);
+   tt_str_op(cp1, OP_EQ,
+-            "PROXY TCP6 fc00:dead:beef:4dad::0:ffff ::1 65535 42\r\n");
++            "PROXY TCP6 fc00:dead:beef:4dad:0:0:0:ffff ::1 65535 42\r\n");
+   tor_free(cp1);
+ 
+   /* Check that GID with UINT16_MAX + 7 works. */
+@@ -2231,7 +2231,25 @@ test_export_client_circuit_id(void *arg)
+ 
+   export_hs_client_circuit_id(edge_conn, service->config.circuit_id_protocol);
+   cp1 = buf_get_contents(conn->outbuf, &sz);
+-  tt_str_op(cp1, OP_EQ, "PROXY TCP6 fc00:dead:beef:4dad::1:6 ::1 6 42\r\n");
++  tt_str_op(cp1, OP_EQ, "PROXY TCP6 fc00:dead:beef:4dad:0:0:1:6 ::1 6 42\r\n");
++
++  /* Check that GID UINT32_MAX works and set a PoW effort. */
++  or_circ->global_identifier = UINT32_MAX;
++  or_circ->hs_pow_effort = 1337;
++
++  export_hs_client_circuit_id(edge_conn, service->config.circuit_id_protocol);
++  cp1 = buf_get_contents(conn->outbuf, &sz);
++  tt_str_op(cp1, OP_EQ,
++            "PROXY TCP6 fc00:dead:beef:4dad:0:539:ffff:ffff ::1 65535 42\r\n");
++
++  /* Check that GID UINT32_MAX works and set a PoW effort to UINT16_MAX + 7. */
++  or_circ->global_identifier = UINT32_MAX;
++  or_circ->hs_pow_effort = UINT16_MAX + 7;
++
++  export_hs_client_circuit_id(edge_conn, service->config.circuit_id_protocol);
++  cp1 = buf_get_contents(conn->outbuf, &sz);
++  tt_str_op(cp1, OP_EQ,
++            "PROXY TCP6 fc00:dead:beef:4dad:1:6:ffff:ffff ::1 65535 42\r\n");
+ 
+  done:
+   UNMOCK(connection_write_to_buf_impl_);

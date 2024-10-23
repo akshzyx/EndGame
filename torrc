@@ -1,0 +1,50 @@
+User debian-tor
+DataDirectory /etc/tor/1/
+
+RunAsDaemon 1
+
+HiddenServiceDir /etc/tor/hidden_service
+HiddenServicePort 80 unix:/var/run/nginx1
+HiddenServiceMaxStreams streamratelimitvalue
+HiddenServiceMaxStreamsCloseCircuit 1
+HiddenServiceNumIntroductionPoints 3
+HiddenServiceExportCircuitID haproxy
+#HiddenServiceOnionBalanceInstance 1
+
+#When POW is enabled on the network you can uncomment this to stop introduction cell attacks on your front
+#HiddenServicePoWDefensesEnabled 1
+
+#Requires the minwork patch!
+#HiddenServicePoWEffort 400
+
+#Should only be used with minwork patch. Allows processing as many requests as possible! Highly recommended.
+#HiddenServicePoWQueueRate 0
+
+#These are minimum rate limit values. Depending on your front speed increase them.
+#HiddenServiceEnableIntroDoSDefense 1
+#HiddenServiceEnableIntroDoSRatePerSec 30
+#HiddenServiceEnableIntroDoSBurstPerSec 120
+
+CookieAuthentication 1
+ControlPort 9051
+ControlPort unix:/etc/tor/c1 WorldWritable RelaxDirModeCheck
+#SocksPort unix:/etc/tor/s1 WorldWritable RelaxDirModeCheck
+SocksPort 0
+
+HashedControlPassword hashedpassword
+HardwareAccel 1 
+AvoidDiskWrites 1
+
+#The values are more aggressive than default values for better load separation.
+#It makes more connection spread onto the network, which does harm the front's privacy a bit.
+NumEntryGuards 4
+NumPrimaryGuards 18
+NumDirectoryGuards 9
+
+#WARNING DO NOT TOUCH THESE IF YOU DON'T KNOW WHAT YOU ARE DOING
+
+#If your onion service server is open to the public you can get performance increases by not building full circuits to the rendezvous point.
+#THIS MAKES YOUR ENDGAME SERVICE ****NOT**** ANONYMOUS! DO NOT ENABLE IF YOU WANT YOUR ENDGAME'S SERVER TO BE PRIVATE! 99.99% of the time you want to leave this as it is.
+#HiddenServiceNonAnonymousMode 1
+#HiddenServiceSingleHopMode 1
+
