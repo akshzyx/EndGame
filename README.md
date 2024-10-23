@@ -2,7 +2,7 @@
 
 This is the third and most likely final version of EndGame. The most popular anti-ddos solution on the darknet.
 
-## Original post on Dread
+### Original post on Dread
 
 [EndGame V3 pre-release testing and bug bounty!](http://dreadytofatroptsdj6io7l3xptbet6onoyno2yv7jicoxknyazubrad.onion/post/821adc377e813881ac74)
 
